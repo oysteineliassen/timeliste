@@ -31,7 +31,27 @@
   .day.we{background:rgba(232,121,43,.18)}
   .day.on{background:#fff;color:var(--brand)}
   .day.today small{color:var(--accent);opacity:1;font-weight:700}
+  .seg{display:flex;background:rgba(255,255,255,.12);border-radius:10px;padding:3px;margin:0 0 10px}
+  .seg button{flex:1;border:0;background:none;color:#fff;font:600 14px system-ui;padding:7px 0;border-radius:8px;opacity:.8}
+  .seg button.on{background:#fff;color:var(--brand);opacity:1}
   main{padding:12px 12px 110px}
+  .tbl{background:var(--card);border-radius:14px;box-shadow:0 1px 2px rgba(0,0,0,.06);overflow:hidden}
+  .tbl table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+  .tbl th,.tbl td{padding:8px 2px;text-align:center;border-bottom:1px solid var(--line)}
+  .tbl th{font-size:11px;color:var(--muted);font-weight:600}
+  .tbl th.we,.tbl td.we{background:#fdf6f0}
+  .tbl td.jn{text-align:left;padding-left:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+  .tbl td.jn small{display:block;color:var(--muted);font-weight:400;font-size:11px}
+  .tbl td.c{cursor:pointer}
+  .tbl td.c.q{color:#7a5b00}
+  .tbl td.s,.tbl th.s{font-weight:700;color:var(--brand);background:#f6f8fb}
+  .tbl tr.sumrow td{font-weight:700;border-bottom:0;background:#f6f8fb}
+  .kv{background:var(--card);border-radius:14px;padding:4px 14px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .kv div{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:15px}
+  .kv div:last-child{border-bottom:0}
+  .kv b{color:var(--brand)}
+  .kv .c{display:block;font-size:14px}
+  .kv .c small{color:var(--muted);display:block;font-size:12px}
   .sec{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:16px 4px 6px}
   .job{background:var(--card);border-radius:14px;padding:12px 14px;margin-bottom:8px;box-shadow:0 1px 2px rgba(0,0,0,.06);display:flex;gap:10px;align-items:center}
   .job .t{flex:1;min-width:0}
@@ -95,6 +115,7 @@
   </div>
   <div class="tot"><span id="wkTot"></span><span id="status"></span></div>
   <div class="days" id="days"></div>
+  <div class="seg"><button id="vDay" class="on">Dag</button><button id="vWeek">Ukeoversikt</button></div>
 </header>
 
 <main id="main"><div class="empty">Laster …</div></main>
@@ -169,6 +190,7 @@ let W = null;                          // gjeldende uke
 let anchor = todayStr();
 let dayIdx = (new Date().getDay()+6)%7;
 let edit = null;                       // {idx, job}
+let view = 'day';                      // 'day' | 'week'
 let syncing = false;
 
 /* ---------- Hjelpere ---------- */
@@ -280,8 +302,10 @@ function render(){
   $('wkTot').textContent = W.exists ? 'Sum uke: '+f1(tot)+' t' : 'Ny uke';
   renderStatus();
   const today=todayStr();
-  $('days').innerHTML=W.dates.map((ds,i)=>`<button class="day${i>4?' we':''}${i===dayIdx?' on':''}${ds===today?' today':''}" data-i="${i}"><small>${DAYN[i]}<br>${pd(ds).getDate()}.</small><span class="h">${sums[i]?f1(sums[i]):'–'}</span></button>`).join('');
-  $('days').querySelectorAll('.day').forEach(b=>b.onclick=()=>{dayIdx=+b.dataset.i;render();});
+  $('days').innerHTML=W.dates.map((ds,i)=>`<button class="day${i>4?' we':''}${view==='day'&&i===dayIdx?' on':''}${ds===today?' today':''}" data-i="${i}"><small>${DAYN[i]}<br>${pd(ds).getDate()}.</small><span class="h">${sums[i]?f1(sums[i]):'–'}</span></button>`).join('');
+  $('days').querySelectorAll('.day').forEach(b=>b.onclick=()=>{dayIdx=+b.dataset.i;view='day';render();});
+  $('vDay').classList.toggle('on',view==='day'); $('vWeek').classList.toggle('on',view==='week');
+  if(view==='week'){ renderWeek(sums,tot); return; }
 
   const on=[],off=[];
   W.jobs.forEach((j,i)=>{
@@ -298,6 +322,58 @@ function render(){
   $('main').querySelectorAll('.job').forEach(el=>el.onclick=()=>openForm(+el.dataset.i));
   $('openSetup').onclick=openSetup;
 }
+
+function renderWeek(sums,tot){
+  const hasWe = W.jobs.some(j=>[5,6].some(d=>dayHours(j.days[d])>0)) || sums[5]||sums[6];
+  const days = hasWe?[0,1,2,3,4,5,6]:[0,1,2,3,4];
+  const short=['Ma','Ti','On','To','Fr','Lø','Sø'];
+  let h='';
+  if(!W.jobs.length){ $('main').innerHTML='<div class="empty">Ingen timer ført denne uka.</div>'+linksHtml(); bindLinks(); return; }
+
+  // Tabell: jobb × dag
+  h+='<div class="sec">Timer per jobb</div><div class="tbl"><table><colgroup><col style="width:'+(hasWe?'30%':'36%')+'">'+days.map(()=>'<col>').join('')+'<col style="width:13%"></colgroup>';
+  h+='<tr><th></th>'+days.map(d=>`<th class="${d>4?'we':''}">${short[d]}<br>${pd(W.dates[d]).getDate()}.</th>`).join('')+'<th class="s">Sum</th></tr>';
+  W.jobs.forEach((j,i)=>{
+    const js=days.reduce((s,d)=>s+dayHours(j.days[d]),0);
+    h+=`<tr><td class="jn">${esc(j.jobb||'(uten navn)')}${j.ordre?'<small>'+esc(fOrdre(j.ordre))+'</small>':''}</td>`;
+    h+=days.map(d=>{ const x=dayHours(j.days[d]); return `<td class="c${d>4?' we':''}${j.days[d].pending?' q':''}" data-i="${i}" data-d="${d}">${x?f1(x):''}</td>`; }).join('');
+    h+=`<td class="s">${js?f1(js):''}</td></tr>`;
+  });
+  h+='<tr class="sumrow"><td class="jn">Sum</td>'+days.map(d=>`<td class="${d>4?'we':''}">${sums[d]?f1(sums[d]):''}</td>`).join('')+`<td class="s">${f1(tot)}</td></tr>`;
+  h+='</table></div>';
+
+  // Per timetype (samles på navn fra rad 4)
+  const byType={}, order=[];
+  W.jobs.forEach(j=>[0,1,2,3,4,5,6].forEach(d=>j.days[d].h.forEach((x,k)=>{
+    const l=W.labels[d][k]; if(!(l in byType)){byType[l]=0;order.push(l);} byType[l]+=n(x);
+  })));
+  const types=order.filter(l=>byType[l]);
+  if(types.length){
+    h+='<div class="sec">Per timetype</div><div class="kv">'+types.map(l=>`<div><span>${esc(lblName(l))}</span><b>${f1(byType[l])} t</b></div>`).join('')+'</div>';
+  }
+
+  // Kjøring og utlegg
+  let bil=0,km=0,bom=0,park=0; const kom=[];
+  W.jobs.forEach(j=>[0,1,2,3,4,5,6].forEach(d=>{
+    const x=j.days[d]; if(x.servicebil!=='') bil+=n(x.servicebil)||1; km+=n(x.km); bom+=n(x.bom); park+=n(x.parkering);
+    if(x.kommentar) kom.push({d,j,t:x.kommentar});
+  }));
+  const ut=[];
+  if(bil) ut.push(['Servicebil',bil+(bil===1?' gang':' ganger')]);
+  if(km) ut.push(['Km egen bil',f1(km).replace(/,0$/,'')+' km']);
+  if(bom) ut.push(['Bom',f1(bom).replace(/,0$/,'')+' kr']);
+  if(park) ut.push(['Parkering',f1(park).replace(/,0$/,'')+' kr']);
+  if(ut.length) h+='<div class="sec">Kjøring og utlegg</div><div class="kv">'+ut.map(([a,b])=>`<div><span>${a}</span><b>${b}</b></div>`).join('')+'</div>';
+
+  if(kom.length) h+='<div class="sec">Kommentarer</div><div class="kv">'+kom.map(c=>`<div><span class="c"><small>${DAYN[c.d]} ${pd(W.dates[c.d]).getDate()}. · ${esc(c.j.jobb)}</small>${esc(c.t)}</span></div>`).join('')+'</div>';
+
+  h+=linksHtml();
+  $('main').innerHTML=h;
+  $('main').querySelectorAll('td.c').forEach(td=>td.onclick=()=>{ dayIdx=+td.dataset.d; openForm(+td.dataset.i); });
+  bindLinks();
+}
+function linksHtml(){ return '<div class="links">'+(W.url?`<a href="${W.url}" target="_blank" rel="noopener">Åpne regnearket ↗</a>`:'')+'<button id="openSetup">Innstillinger</button></div>'; }
+function bindLinks(){ $('openSetup').onclick=openSetup; }
 
 function card(i,dim){
   const j=W.jobs[i], d=j.days[dayIdx], L=W.labels[dayIdx], tags=[];
@@ -414,12 +490,15 @@ $('sSave').onclick=async()=>{
 function shiftWeek(k){ const d=pd(W.dates[0]); d.setDate(d.getDate()+7*k); anchor=iso(d); load(anchor); }
 $('prev').onclick=()=>shiftWeek(-1);
 $('next').onclick=()=>shiftWeek(1);
-$('add').onclick=()=>W&&openForm(null);
+$('add').onclick=()=>{ if(!W) return; if(view==='week'){ view='day'; render(); } openForm(null); };
+$('vDay').onclick=()=>{ view='day'; render(); };
+$('vWeek').onclick=()=>{ view='week'; render(); };
 let sx=null;
 $('main').addEventListener('touchstart',e=>sx=e.touches[0].clientX,{passive:true});
 $('main').addEventListener('touchend',e=>{
   if(sx==null) return; const dx=e.changedTouches[0].clientX-sx; sx=null;
   if(Math.abs(dx)<70) return;
+  if(view==='week'){ shiftWeek(dx<0?1:-1); return; }
   if(dx<0){ if(dayIdx<6){dayIdx++;render();} else {dayIdx=0;shiftWeek(1);} }
   else { if(dayIdx>0){dayIdx--;render();} else {dayIdx=6;shiftWeek(-1);} }
 });
