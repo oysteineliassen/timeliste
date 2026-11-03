@@ -200,7 +200,7 @@ async function api(fn,...args){
   let r;
   try{
     r = await fetch(CONF.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key:CONF.key,fn,args}),redirect:'follow'});
-  }catch(e){ throw new NetErr('Ingen forbindelse'); }
+  }catch(e){ throw new NetErr(navigator.onLine ? 'Google avviste forespørselen. Sjekk at implementeringen har tilgang «Alle» og ny versjon (åpne /exec-adressen i nettleseren – den skal vise «Timeliste-API kjører»).' : 'Ingen forbindelse'); }
   let j;
   try{ j = await r.json(); }catch(e){ throw new Error('Uventet svar fra Google (sjekk at tilgang er «Alle»).'); }
   if(!j.ok) throw new Error(j.error||'Ukjent feil');
