@@ -1,5 +1,5 @@
 // Timeliste – service worker: appen virker uten nett. Data går direkte til Google (ikke cachet her).
-const CACHE = 'timeliste-v3';
+const CACHE = 'timeliste-v4';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -13,7 +13,7 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
   // Nett først (får oppdateringer), cache som reserve når du er offline
   e.respondWith(
-    fetch(e.request).then(r => {
+    fetch(e.request.url, { cache: 'no-cache' }).then(r => {   // sjekk alltid etter ny versjon (omgår 10-min cache)
       const copy = r.clone();
       caches.open(CACHE).then(c => c.put(e.request, copy));
       return r;
