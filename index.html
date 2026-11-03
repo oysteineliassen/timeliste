@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Timeliste</title>
+<meta name="theme-color" content="#1f3a5f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#f3f5f8; --card:#fff; --ink:#1b2430; --muted:#6b7686; --line:#e3e7ee;
+    --brand:#1f3a5f; --accent:#e8792b; --ok:#2f8f5b; --err:#c0392b;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{position:sticky;top:0;z-index:5;background:var(--brand);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 12px 0}
+  .wk{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .wk button{background:rgba(255,255,255,.12);border:0;color:#fff;font-size:20px;width:44px;height:44px;border-radius:12px}
+  .wk .mid{text-align:center;flex:1}
+  .wk .mid b{display:block;font-size:19px}
+  .wk .mid span{font-size:13px;opacity:.8}
+  .tot{font-size:13px;opacity:.9;text-align:center;margin:4px 0 8px;display:flex;justify-content:center;gap:8px;align-items:center;flex-wrap:wrap}
+  .pill{font-size:12px;border-radius:10px;padding:1px 8px;background:rgba(255,255,255,.15)}
+  .pill.warn{background:var(--accent)}
+  .days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding-bottom:10px}
+  .day{background:rgba(255,255,255,.1);border:0;color:#fff;border-radius:10px;padding:6px 0;font:inherit;line-height:1.15}
+  .day small{display:block;font-size:11px;opacity:.75}
+  .day .h{font-weight:700;font-size:14px}
+  .day.we{background:rgba(232,121,43,.18)}
+  .day.on{background:#fff;color:var(--brand)}
+  .day.today small{color:var(--accent);opacity:1;font-weight:700}
+  main{padding:12px 12px 110px}
+  .sec{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:16px 4px 6px}
+  .job{background:var(--card);border-radius:14px;padding:12px 14px;margin-bottom:8px;box-shadow:0 1px 2px rgba(0,0,0,.06);display:flex;gap:10px;align-items:center}
+  .job .t{flex:1;min-width:0}
+  .job .n{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .job .o{font-size:13px;color:var(--muted)}
+  .job .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+  .tag{font-size:12px;background:#eef2f7;border-radius:6px;padding:1px 6px;color:#3a4657}
+  .tag.ot{background:#fdeee3;color:#9a4a12}
+  .tag.q{background:#fff3cd;color:#7a5b00}
+  .job .hrs{font-size:20px;font-weight:700;color:var(--brand);min-width:44px;text-align:right}
+  .job.dim{opacity:.6;box-shadow:none;background:transparent;border:1px dashed var(--line)}
+  .job.dim .hrs{font-size:22px;color:var(--muted)}
+  .empty{color:var(--muted);text-align:center;padding:28px 10px}
+  .fab{position:fixed;right:16px;bottom:calc(20px + env(safe-area-inset-bottom));background:var(--accent);color:#fff;border:0;border-radius:28px;padding:16px 22px;font:600 16px system-ui;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+  .links{display:flex;justify-content:center;gap:18px;margin-top:18px}
+  .links a,.links button{color:var(--brand);font-size:14px;background:none;border:0;font-family:inherit;text-decoration:underline;padding:0}
+  .sheet{position:fixed;inset:0;background:rgba(10,20,30,.45);display:none;z-index:10}
+  .sheet.on{display:block}
+  .panel{position:absolute;left:0;right:0;bottom:0;max-height:94%;overflow:auto;background:var(--bg);border-radius:18px 18px 0 0;padding:14px 14px calc(24px + env(safe-area-inset-bottom))}
+  .panel h2{margin:2px 4px 10px;font-size:18px}
+  .panel h2 small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+  .panel p{margin:4px 4px 10px;color:var(--muted);font-size:14px}
+  .box{background:var(--card);border-radius:14px;padding:4px 12px;margin-bottom:10px}
+  .row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .row label{flex:1;font-size:15px}
+  .row label small{display:block;color:var(--muted);font-size:12px}
+  input,textarea{font:inherit;border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:#fff;width:100%}
+  .step{display:flex;align-items:center;gap:6px}
+  .step button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:20px;color:var(--brand)}
+  .step input{width:64px;text-align:center;font-weight:600}
+  .sm{width:110px !important;text-align:right}
+  .switch{position:relative;width:52px;height:30px;flex:none !important}
+  .switch input{opacity:0;width:0;height:0}
+  .switch span{position:absolute;inset:0;background:#cdd4de;border-radius:30px;transition:.15s}
+  .switch span:before{content:"";position:absolute;width:24px;height:24px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s}
+  .switch input:checked+span{background:var(--ok)}
+  .switch input:checked+span:before{transform:translateX(22px)}
+  .chips{display:flex;gap:6px;overflow-x:auto;padding:8px 0 10px}
+  .chip{flex:none;border:1px solid var(--line);background:#fff;border-radius:18px;padding:6px 12px;font:inherit;font-size:14px;white-space:nowrap;color:var(--ink)}
+  .btns{display:flex;gap:8px;margin-top:6px}
+  .btns button{flex:1;padding:14px;border-radius:12px;border:0;font:600 16px system-ui}
+  .save{background:var(--brand);color:#fff}
+  .cancel{background:#e3e7ee;color:var(--ink)}
+  .danger{background:none;border:0;color:var(--err);font:inherit;font-size:14px;margin:14px auto 0;display:block}
+  .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:.2s;pointer-events:none;z-index:20;max-width:90%}
+  .toast.on{opacity:1}
+  .toast.err{background:var(--err)}
+  .busy{position:fixed;top:0;left:0;right:0;height:3px;z-index:30;display:none;overflow:hidden}
+  .busy.on{display:block}
+  .busy:before{content:"";position:absolute;height:100%;width:40%;background:var(--accent);animation:b 1s ease-in-out infinite}
+  @keyframes b{0%{left:-40%}100%{left:100%}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wk">
+    <button id="prev" aria-label="Forrige uke">‹</button>
+    <div class="mid"><b id="wkTitle">Timeliste</b><span id="wkRange"></span></div>
+    <button id="next" aria-label="Neste uke">›</button>
+  </div>
+  <div class="tot"><span id="wkTot"></span><span id="status"></span></div>
+  <div class="days" id="days"></div>
+</header>
+
+<main id="main"><div class="empty">Laster …</div></main>
+<button class="fab" id="add">+ Jobb</button>
+
+<!-- Føre timer -->
+<div class="sheet" id="sheet">
+  <div class="panel">
+    <h2 id="fTitle">Ny jobb<small id="fSub"></small></h2>
+    <div id="pickWrap">
+      <div class="box">
+        <div class="row"><label>Ordre nr</label><input id="fOrdre" inputmode="numeric" class="sm" autocomplete="off"></div>
+        <div class="row"><input id="fJobb" placeholder="Jobb / sted" list="sugList" autocomplete="off"></div>
+      </div>
+      <datalist id="sugList"></datalist>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="box">
+      <div class="row"><label id="l0"></label><div class="step" data-f="0"></div></div>
+      <div class="row"><label id="l1"></label><div class="step" data-f="1"></div></div>
+      <div class="row"><label id="l2"></label><div class="step" data-f="2"></div></div>
+      <div class="row"><label id="l3"></label><div class="step" data-f="3"></div></div>
+    </div>
+    <div class="box">
+      <div class="row"><label>Servicebil</label><label class="switch"><input type="checkbox" id="fBil"><span></span></label></div>
+      <div class="row"><label>Km <small>egen bil</small></label><input id="fKm" inputmode="decimal" class="sm"></div>
+      <div class="row"><label>Bom <small>kr</small></label><input id="fBom" inputmode="decimal" class="sm"></div>
+      <div class="row"><label>Parkering <small>kr</small></label><input id="fPark" inputmode="decimal" class="sm"></div>
+      <div class="row"><textarea id="fKom" rows="2" placeholder="Kommentar"></textarea></div>
+    </div>
+    <div class="btns">
+      <button class="cancel" id="fCancel">Avbryt</button>
+      <button class="save" id="fSave">Lagre</button>
+    </div>
+    <button class="danger" id="fDel">Fjern jobben fra hele uka</button>
+  </div>
+</div>
+
+<!-- Innstillinger -->
+<div class="sheet" id="setup">
+  <div class="panel">
+    <h2>Kobling til regnearket</h2>
+    <p>Lim inn nettapp-adressen fra Apps Script (slutter på <b>/exec</b>) og API-nøkkelen fra loggen etter at du kjørte <b>oppsett</b>.</p>
+    <div class="box">
+      <div class="row"><input id="sUrl" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></div>
+      <div class="row"><input id="sKey" placeholder="API-nøkkel" autocomplete="off"></div>
+    </div>
+    <div class="btns">
+      <button class="cancel" id="sCancel">Avbryt</button>
+      <button class="save" id="sSave">Test og lagre</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="busy" id="busy"></div>
+
+<script>
+const DAYN = ['Man','Tir','Ons','Tor','Fre','Lør','Søn'];
+const DAYL = ['mandag','tirsdag','onsdag','torsdag','fredag','lørdag','søndag'];
+const MON = ['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','des'];
+const DEF_LABELS = d => d<5 ? ['Teknikker','Montør','Intern','50%'] : ['Teknikker','Montør','50%','100%'];
+
+const $ = id => document.getElementById(id);
+const LS = {
+  get(k,def){ try{ const v=localStorage.getItem(k); return v==null?def:JSON.parse(v); }catch(e){ return def; } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+};
+
+let CONF = LS.get('conf', null);       // {url,key}
+let W = null;                          // gjeldende uke
+let anchor = todayStr();
+let dayIdx = (new Date().getDay()+6)%7;
+let edit = null;                       // {idx, job}
+let syncing = false;
+
+/* ---------- Hjelpere ---------- */
+function todayStr(){ return iso(new Date()); }
+function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function pd(s){ const p=s.split('-').map(Number); return new Date(p[0],p[1]-1,p[2],12); }
+function mondayStr(s){ const d=pd(s); d.setDate(d.getDate()-((d.getDay()+6)%7)); return iso(d); }
+function isoWeek(d){ const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); const day=t.getUTCDay()||7; t.setUTCDate(t.getUTCDate()+4-day); const y=new Date(Date.UTC(t.getUTCFullYear(),0,1)); return {week:Math.ceil(((t-y)/864e5+1)/7),year:t.getUTCFullYear()}; }
+function n(v){ if(v===''||v==null) return 0; const x=Number(String(v).replace(',','.')); return isNaN(x)?0:x; }
+function f1(x){ return x.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:2}); }
+function fOrdre(o){ const x=Number(String(o).replace(/\s/g,'')); return o===''?'':(isNaN(x)?o:x.toLocaleString('nb-NO')); }
+function dayHours(d){ return d.h.reduce((s,x)=>s+n(x),0); }
+function lblName(l){ return /%$/.test(l)?'Overtid '+l:l; }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function emptyDay(){ return {h:['','','',''],servicebil:'',km:'',bom:'',parkering:'',kommentar:''}; }
+function toast(msg,err){ const t=$('toast'); t.textContent=msg; t.className='toast on'+(err?' err':''); clearTimeout(t._t); t._t=setTimeout(()=>t.className='toast',err?4000:1800); }
+function busy(on){ $('busy').classList.toggle('on',on); }
+
+function blankWeek(date){
+  const m=pd(mondayStr(date)); const iw=isoWeek(m);
+  const dates=[...Array(7)].map((_,i)=>{const x=new Date(m); x.setDate(m.getDate()+i); return iso(x);});
+  return {week:iw.week,year:iw.year,dates,exists:false,labels:[0,1,2,3,4,5,6].map(DEF_LABELS),jobs:[],url:null,suggestions:LS.get('sug',[])};
+}
+
+/* ---------- API ---------- */
+class NetErr extends Error {}
+async function api(fn,...args){
+  if(!CONF) throw new Error('Appen er ikke koblet til regnearket.');
+  let r;
+  try{
+    r = await fetch(CONF.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key:CONF.key,fn,args}),redirect:'follow'});
+  }catch(e){ throw new NetErr('Ingen forbindelse'); }
+  let j;
+  try{ j = await r.json(); }catch(e){ throw new Error('Uventet svar fra Google (sjekk at tilgang er «Alle»).'); }
+  if(!j.ok) throw new Error(j.error||'Ukjent feil');
+  return j.data;
+}
+
+/* ---------- Kø (offline) ---------- */
+function queue(){ return LS.get('queue',[]); }
+function setQueue(q){ LS.set('queue',q); renderStatus(); }
+
+function applyLocal(w, entry){
+  const dow=(pd(entry.date).getDay()+6)%7;
+  let j = entry.idx!=null ? w.jobs[entry.idx] : null;
+  if(!j) j = w.jobs.find(x=>(entry.ordre && String(x.ordre).replace(/\s/g,'')===String(entry.ordre).replace(/\s/g,'')) || (entry.jobb && x.jobb.toLowerCase()===entry.jobb.toLowerCase()));
+  if(!j){ j={row:null,ordre:entry.ordre,jobb:entry.jobb,days:[...Array(7)].map(emptyDay)}; w.jobs.push(j); }
+  const v=entry.values;
+  j.days[dow]={h:v.h.map(x=>n(x)||''),servicebil:v.servicebil?1:'',km:n(v.km)||'',bom:n(v.bom)||'',parkering:n(v.parkering)||'',kommentar:v.kommentar||'',pending:true};
+  w.exists=true;
+}
+
+async function sync(){
+  if(syncing||!CONF) return;
+  let q=queue(); if(!q.length) return;
+  syncing=true; renderStatus();
+  try{
+    while(q.length){
+      const e=q[0]; const send=Object.assign({},e); delete send.idx;
+      try{ await api('saveEntry',send); }
+      catch(err){
+        if(err instanceof NetErr) break;
+        toast('Kunne ikke lagre «'+e.jobb+'»: '+err.message,true);   // forkast ugyldig oppføring
+      }
+      q.shift(); setQueue(q);
+    }
+  } finally { syncing=false; renderStatus(); }
+  if(!queue().length && W) load(W.dates[0], true);
+}
+
+function renderStatus(){
+  const q=queue().length, el=$('status');
+  if(!CONF){ el.innerHTML='<span class="pill warn">Ikke koblet</span>'; return; }
+  if(q) el.innerHTML=`<span class="pill warn">${syncing?'Sender…':q+' venter på nett'}</span>`;
+  else if(!navigator.onLine) el.innerHTML='<span class="pill">Offline</span>';
+  else el.innerHTML='';
+}
+
+/* ---------- Lasting ---------- */
+function overlayQueue(w){
+  const mon=w.dates[0];
+  queue().forEach(e=>{ if(mondayStr(e.date)===mon) applyLocal(w,Object.assign({},e,{idx:null})); });
+  return w;
+}
+
+async function load(date, silent){
+  const key='wk:'+mondayStr(date);
+  const cached=LS.get(key,null);
+  W = overlayQueue(cached ? JSON.parse(JSON.stringify(cached)) : blankWeek(date));
+  render();
+  if(!CONF) return;
+  if(!silent) busy(true);
+  try{
+    const fresh=await api('getWeek',date);
+    LS.set(key,fresh); LS.set('sug',fresh.suggestions);
+    if(mondayStr(date)===W.dates[0]){ W=overlayQueue(JSON.parse(JSON.stringify(fresh))); render(); }
+  }catch(e){
+    if(!(e instanceof NetErr)) toast(e.message,true);
+  }finally{ busy(false); }
+}
+
+/* ---------- Visning ---------- */
+function render(){
+  const d0=pd(W.dates[0]), d6=pd(W.dates[6]);
+  $('wkTitle').textContent='Uke '+W.week+(W.year!==new Date().getFullYear()?' · '+W.year:'');
+  $('wkRange').textContent=d0.getDate()+'. '+(d0.getMonth()!==d6.getMonth()?MON[d0.getMonth()]+' ':'')+'– '+d6.getDate()+'. '+MON[d6.getMonth()];
+  const sums=[0,1,2,3,4,5,6].map(i=>W.jobs.reduce((s,j)=>s+dayHours(j.days[i]),0));
+  const tot=sums.reduce((a,b)=>a+b,0);
+  $('wkTot').textContent = W.exists ? 'Sum uke: '+f1(tot)+' t' : 'Ny uke';
+  renderStatus();
+  const today=todayStr();
+  $('days').innerHTML=W.dates.map((ds,i)=>`<button class="day${i>4?' we':''}${i===dayIdx?' on':''}${ds===today?' today':''}" data-i="${i}"><small>${DAYN[i]}<br>${pd(ds).getDate()}.</small><span class="h">${sums[i]?f1(sums[i]):'–'}</span></button>`).join('');
+  $('days').querySelectorAll('.day').forEach(b=>b.onclick=()=>{dayIdx=+b.dataset.i;render();});
+
+  const on=[],off=[];
+  W.jobs.forEach((j,i)=>{
+    const d=j.days[dayIdx];
+    const any=dayHours(d)>0||d.servicebil!==''||d.km!==''||d.bom!==''||d.parkering!==''||d.kommentar!=='';
+    (any?on:off).push(i);
+  });
+  const dd=pd(W.dates[dayIdx]);
+  let h=`<div class="sec">${DAYL[dayIdx]} ${dd.getDate()}. ${MON[dd.getMonth()]}</div>`;
+  h+=on.length?on.map(i=>card(i,false)).join(''):'<div class="empty">Ingen timer ført denne dagen.</div>';
+  if(off.length) h+='<div class="sec">Andre jobber denne uka – trykk for å føre</div>'+off.map(i=>card(i,true)).join('');
+  h+='<div class="links">'+(W.url?`<a href="${W.url}" target="_blank" rel="noopener">Åpne regnearket ↗</a>`:'')+'<button id="openSetup">Innstillinger</button></div>';
+  $('main').innerHTML=h;
+  $('main').querySelectorAll('.job').forEach(el=>el.onclick=()=>openForm(+el.dataset.i));
+  $('openSetup').onclick=openSetup;
+}
+
+function card(i,dim){
+  const j=W.jobs[i], d=j.days[dayIdx], L=W.labels[dayIdx], tags=[];
+  if(!dim){
+    d.h.forEach((x,k)=>{ if(n(x)) tags.push(`<span class="tag${/%/.test(L[k])?' ot':''}">${esc(L[k])} ${f1(n(x))}</span>`); });
+    if(d.servicebil!=='') tags.push('<span class="tag">🚐 Servicebil</span>');
+    if(d.km!=='') tags.push(`<span class="tag">${esc(d.km)} km</span>`);
+    if(d.bom!=='') tags.push(`<span class="tag">Bom ${esc(d.bom)}</span>`);
+    if(d.parkering!=='') tags.push(`<span class="tag">P ${esc(d.parkering)}</span>`);
+    if(d.kommentar!=='') tags.push(`<span class="tag">💬 ${esc(d.kommentar)}</span>`);
+    if(d.pending) tags.push('<span class="tag q">⏳ ikke sendt</span>');
+  }
+  return `<div class="job${dim?' dim':''}" data-i="${i}">
+    <div class="t"><div class="n">${esc(j.jobb||'(uten navn)')}</div>
+    <div class="o">${j.ordre?'Ordre '+esc(fOrdre(j.ordre)):''}</div>
+    ${tags.length?'<div class="tags">'+tags.join('')+'</div>':''}</div>
+    <div class="hrs">${dim?'+':f1(dayHours(d))}</div></div>`;
+}
+
+/* ---------- Skjema ---------- */
+document.querySelectorAll('.step').forEach(s=>{
+  const f=s.dataset.f;
+  s.innerHTML=`<button type="button" data-d="-0.5">−</button><input id="h${f}" inputmode="decimal"><button type="button" data-d="0.5">+</button>`;
+  s.querySelectorAll('button').forEach(b=>b.onclick=()=>{ const i=$('h'+f); const v=Math.max(0,n(i.value)+Number(b.dataset.d)); i.value=v?f1(v):''; });
+});
+function setVal(id,v){ $(id).value=(v===''||v==null)?'':String(v).replace('.',','); }
+
+function openForm(idx){
+  const job = idx!=null ? W.jobs[idx] : null;
+  edit = job ? {idx,job} : null;
+  const d = job ? job.days[dayIdx] : emptyDay();
+  const date=pd(W.dates[dayIdx]);
+  $('fTitle').firstChild.nodeValue = job ? (job.jobb||'Jobb') : 'Ny jobb';
+  $('fSub').textContent = DAYL[dayIdx]+' '+date.getDate()+'. '+MON[date.getMonth()]+(job&&job.ordre?' · ordre '+fOrdre(job.ordre):'');
+  $('pickWrap').style.display = job?'none':'';
+  $('fDel').style.display = job&&job.row?'':'none';
+  $('fOrdre').value=job?job.ordre:''; $('fJobb').value=job?job.jobb:'';
+  W.labels[dayIdx].forEach((l,k)=>{ $('l'+k).textContent=lblName(l); const v=n(d.h[k]); $('h'+k).value=v?f1(v):''; });
+  $('fBil').checked = job ? d.servicebil!=='' : true;
+  setVal('fKm',d.km); setVal('fBom',d.bom); setVal('fPark',d.parkering);
+  $('fKom').value=d.kommentar||'';
+  if(!job){
+    const inWeek=new Set(W.jobs.map(j=>(j.jobb||'').toLowerCase()));
+    const sug=(W.suggestions||[]).filter(s=>!inWeek.has(s.jobb.toLowerCase()));
+    $('sugList').innerHTML=(W.suggestions||[]).map(s=>`<option value="${esc(s.jobb)}">${s.ordre?esc(fOrdre(s.ordre)):''}</option>`).join('');
+    $('chips').innerHTML=sug.slice(0,15).map((s,i)=>`<button class="chip" data-i="${i}">${esc(s.jobb)}</button>`).join('');
+    $('chips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{ const s=sug[+c.dataset.i]; $('fJobb').value=s.jobb; $('fOrdre').value=s.ordre; });
+  }
+  $('sheet').classList.add('on');
+}
+$('fJobb').addEventListener('change',()=>{
+  const s=(W.suggestions||[]).find(x=>x.jobb.toLowerCase()===$('fJobb').value.trim().toLowerCase());
+  if(s&&!$('fOrdre').value) $('fOrdre').value=s.ordre;
+});
+function closeForm(){ $('sheet').classList.remove('on'); edit=null; }
+$('fCancel').onclick=closeForm;
+$('sheet').onclick=e=>{ if(e.target.id==='sheet') closeForm(); };
+
+$('fSave').onclick=async()=>{
+  const entry={
+    date:W.dates[dayIdx],
+    row:edit?edit.job.row:null,
+    ordre:edit?edit.job.ordre:$('fOrdre').value.trim(),
+    jobb:edit?edit.job.jobb:$('fJobb').value.trim(),
+    values:{h:[0,1,2,3].map(k=>$('h'+k).value),servicebil:$('fBil').checked,km:$('fKm').value,bom:$('fBom').value,parkering:$('fPark').value,kommentar:$('fKom').value.trim()}
+  };
+  if(!entry.jobb&&!entry.ordre){ toast('Skriv inn jobb eller ordre nr',true); return; }
+  if(!CONF){ toast('Koble til regnearket først (Innstillinger)',true); return; }
+  const idx=edit?edit.idx:null;
+  closeForm();
+  // Vis med en gang, send i bakgrunnen
+  applyLocal(W,Object.assign({},entry,{idx}));
+  render();
+  if(!queue().length){
+    busy(true);
+    try{
+      const fresh=await api('saveEntry',entry);
+      LS.set('wk:'+fresh.dates[0],fresh);
+      if(fresh.dates[0]===W.dates[0]){ W=overlayQueue(fresh); render(); }
+      toast('Lagret ✓');
+      return;
+    }catch(e){
+      if(!(e instanceof NetErr)){ toast('Feil: '+e.message,true); load(W.dates[0],true); return; }
+    }finally{ busy(false); }
+  }
+  setQueue(queue().concat([entry]));
+  toast('Lagret på telefonen – sendes når du har nett');
+  render();
+};
+
+$('fDel').onclick=async()=>{
+  if(!edit||!edit.job.row) return;
+  if(!confirm('Fjerne «'+(edit.job.jobb||'jobben')+'» og alle timene på den denne uka?')) return;
+  const row=edit.job.row; closeForm(); busy(true);
+  try{ const fresh=await api('deleteJobRow',W.dates[0],row); LS.set('wk:'+fresh.dates[0],fresh); W=overlayQueue(fresh); render(); toast('Fjernet'); }
+  catch(e){ toast(e instanceof NetErr?'Sletting krever nett':'Feil: '+e.message,true); }
+  finally{ busy(false); }
+};
+
+/* ---------- Innstillinger ---------- */
+function openSetup(){ $('sUrl').value=CONF?CONF.url:''; $('sKey').value=CONF?CONF.key:''; $('setup').classList.add('on'); }
+$('sCancel').onclick=()=>$('setup').classList.remove('on');
+$('sSave').onclick=async()=>{
+  const url=$('sUrl').value.trim(), key=$('sKey').value.trim();
+  if(!/^https:\/\/script\.google\.com\/.+\/exec$/.test(url)){ toast('Adressen skal starte med https://script.google.com og slutte på /exec',true); return; }
+  if(!key){ toast('Mangler API-nøkkel',true); return; }
+  const old=CONF; CONF={url,key}; busy(true);
+  try{ const r=await api('ping'); LS.set('conf',CONF); $('setup').classList.remove('on'); toast('Koblet til «'+r.name+'» ✓'); load(W?W.dates[dayIdx]:anchor); sync(); }
+  catch(e){ CONF=old; toast('Fikk ikke kontakt: '+e.message,true); }
+  finally{ busy(false); }
+};
+
+/* ---------- Navigasjon ---------- */
+function shiftWeek(k){ const d=pd(W.dates[0]); d.setDate(d.getDate()+7*k); anchor=iso(d); load(anchor); }
+$('prev').onclick=()=>shiftWeek(-1);
+$('next').onclick=()=>shiftWeek(1);
+$('add').onclick=()=>W&&openForm(null);
+let sx=null;
+$('main').addEventListener('touchstart',e=>sx=e.touches[0].clientX,{passive:true});
+$('main').addEventListener('touchend',e=>{
+  if(sx==null) return; const dx=e.changedTouches[0].clientX-sx; sx=null;
+  if(Math.abs(dx)<70) return;
+  if(dx<0){ if(dayIdx<6){dayIdx++;render();} else {dayIdx=0;shiftWeek(1);} }
+  else { if(dayIdx>0){dayIdx--;render();} else {dayIdx=6;shiftWeek(-1);} }
+});
+
+window.addEventListener('online',()=>{ renderStatus(); sync(); });
+window.addEventListener('offline',renderStatus);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ sync(); if(W) load(W.dates[0],true); } });
+setInterval(sync,60000);
+
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+
+load(anchor);
+if(!CONF) openSetup(); else sync();
+</script>
+</body>
+</html>
