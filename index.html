@@ -104,6 +104,36 @@
   .busy.on{display:block}
   .busy:before{content:"";position:absolute;height:100%;width:40%;background:var(--accent);animation:b 1s ease-in-out infinite}
   @keyframes b{0%{left:-40%}100%{left:100%}}
+  .addbtn{width:100%;border:1px dashed #b9c3d1;background:#fff;color:var(--brand);border-radius:14px;padding:12px;font:600 15px system-ui;cursor:pointer;margin-bottom:8px}
+  .tbl th.sel,.tbl td.sel{background:#eaf0f8}
+  .tbl tr.sumrow td.sel{background:#dfe7f2}
+  @media (min-width:900px){
+    html,body{background:#e9edf2}
+    header{padding:14px 24px 0}
+    header>*{max-width:1280px;margin-left:auto;margin-right:auto}
+    .wk .mid b{font-size:22px}
+    .wk button{cursor:pointer}
+    .days{gap:8px}
+    .day{cursor:pointer;padding:8px 0}
+    .day small{font-size:12px}
+    .day small br{display:none}
+    .day .h{font-size:16px}
+    .seg,.fab{display:none}
+    main{max-width:1280px;margin:0 auto;padding:20px 24px 40px}
+    .dgrid{display:grid;grid-template-columns:380px 1fr;gap:24px;align-items:start}
+    .dcol{position:sticky;top:170px}
+    .job{cursor:pointer}
+    .job:hover{box-shadow:0 2px 8px rgba(0,0,0,.1)}
+    .tbl table{font-size:14px}
+    .tbl th{font-size:12px;cursor:pointer}
+    .tbl th br{display:none}
+    .tbl td,.tbl th{padding:10px 4px}
+    .tbl td.c:hover{background:#dfe7f2}
+    .boxes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0 16px}
+    .sheet .panel{left:50%;top:50%;bottom:auto;transform:translate(-50%,-50%);width:520px;max-height:90vh;border-radius:18px}
+    .step button,.chip,.btns button,.links a,.links button,.danger{cursor:pointer}
+    .toast{bottom:30px}
+  }
 </style>
 </head>
 <body>
@@ -190,7 +220,8 @@ let W = null;                          // gjeldende uke
 let anchor = todayStr();
 let dayIdx = (new Date().getDay()+6)%7;
 let edit = null;                       // {idx, job}
-let view = 'day';                      // 'day' | 'week'
+let view = 'day';                      // 'day' | 'week' (kun mobil)
+const DESK = window.matchMedia('(min-width: 900px)');
 let syncing = false;
 
 /* ---------- Hjelpere ---------- */
@@ -302,11 +333,26 @@ function render(){
   $('wkTot').textContent = W.exists ? 'Sum uke: '+f1(tot)+' t' : 'Ny uke';
   renderStatus();
   const today=todayStr();
-  $('days').innerHTML=W.dates.map((ds,i)=>`<button class="day${i>4?' we':''}${view==='day'&&i===dayIdx?' on':''}${ds===today?' today':''}" data-i="${i}"><small>${DAYN[i]}<br>${pd(ds).getDate()}.</small><span class="h">${sums[i]?f1(sums[i]):'–'}</span></button>`).join('');
+  $('days').innerHTML=W.dates.map((ds,i)=>`<button class="day${i>4?' we':''}${view==='day'&&i===dayIdx?' on':''}${ds===today?' today':''}" data-i="${i}"><small>${DAYN[i]} <br>${pd(ds).getDate()}.</small><span class="h">${sums[i]?f1(sums[i]):'–'}</span></button>`).join('');
   $('days').querySelectorAll('.day').forEach(b=>b.onclick=()=>{dayIdx=+b.dataset.i;view='day';render();});
   $('vDay').classList.toggle('on',view==='day'); $('vWeek').classList.toggle('on',view==='week');
-  if(view==='week'){ renderWeek(sums,tot); return; }
+  const desk=DESK.matches;
+  document.body.classList.toggle('desk',desk);
+  let h;
+  if(desk){
+    h=`<div class="dgrid"><section class="dcol">${dayHtml(true)}</section><section class="wcol">${weekHtml(sums,tot,true)}</section></div>`+linksHtml();
+  } else {
+    h=(view==='week'?weekHtml(sums,tot,false):dayHtml(false))+linksHtml();
+  }
+  $('main').innerHTML=h;
+  $('main').querySelectorAll('.job').forEach(el=>el.onclick=()=>openForm(+el.dataset.i));
+  $('main').querySelectorAll('td.c').forEach(td=>td.onclick=()=>{ dayIdx=+td.dataset.d; if(desk) render(); openForm(+td.dataset.i); });
+  $('main').querySelectorAll('th[data-d]').forEach(th=>th.onclick=()=>{ dayIdx=+th.dataset.d; view='day'; render(); });
+  const ad=$('addDay'); if(ad) ad.onclick=()=>openForm(null);
+  bindLinks();
+}
 
+function dayHtml(desk){
   const on=[],off=[];
   W.jobs.forEach((j,i)=>{
     const d=j.days[dayIdx];
@@ -314,32 +360,30 @@ function render(){
     (any?on:off).push(i);
   });
   const dd=pd(W.dates[dayIdx]);
-  let h=`<div class="sec">${DAYL[dayIdx]} ${dd.getDate()}. ${MON[dd.getMonth()]}</div>`;
+  const ds=W.jobs.reduce((s,j)=>s+dayHours(j.days[dayIdx]),0);
+  let h=`<div class="sec">${DAYL[dayIdx]} ${dd.getDate()}. ${MON[dd.getMonth()]}${desk&&ds?' · '+f1(ds)+' t':''}</div>`;
   h+=on.length?on.map(i=>card(i,false)).join(''):'<div class="empty">Ingen timer ført denne dagen.</div>';
-  if(off.length) h+='<div class="sec">Andre jobber denne uka – trykk for å føre</div>'+off.map(i=>card(i,true)).join('');
-  h+='<div class="links">'+(W.url?`<a href="${W.url}" target="_blank" rel="noopener">Åpne regnearket ↗</a>`:'')+'<button id="openSetup">Innstillinger</button></div>';
-  $('main').innerHTML=h;
-  $('main').querySelectorAll('.job').forEach(el=>el.onclick=()=>openForm(+el.dataset.i));
-  $('openSetup').onclick=openSetup;
+  if(desk) h+=`<button class="addbtn" id="addDay">+ Legg til jobb på ${DAYL[dayIdx]}</button>`;
+  if(off.length) h+='<div class="sec">Andre jobber denne uka – '+(desk?'klikk':'trykk')+' for å føre</div>'+off.map(i=>card(i,true)).join('');
+  return h;
 }
 
-function renderWeek(sums,tot){
-  const hasWe = W.jobs.some(j=>[5,6].some(d=>dayHours(j.days[d])>0)) || sums[5]||sums[6];
+function weekHtml(sums,tot,desk){
+  const hasWe = desk || W.jobs.some(j=>[5,6].some(d=>dayHours(j.days[d])>0)) || sums[5]||sums[6];
   const days = hasWe?[0,1,2,3,4,5,6]:[0,1,2,3,4];
-  const short=['Ma','Ti','On','To','Fr','Lø','Sø'];
-  let h='';
-  if(!W.jobs.length){ $('main').innerHTML='<div class="empty">Ingen timer ført denne uka.</div>'+linksHtml(); bindLinks(); return; }
+  const short = desk?['Man','Tir','Ons','Tor','Fre','Lør','Søn']:['Ma','Ti','On','To','Fr','Lø','Sø'];
+  if(!W.jobs.length) return '<div class="sec">Ukeoversikt</div><div class="empty">Ingen timer ført denne uka.</div>';
+  const sel = d => desk&&d===dayIdx?' sel':'';
 
-  // Tabell: jobb × dag
-  h+='<div class="sec">Timer per jobb</div><div class="tbl"><table><colgroup><col style="width:'+(hasWe?'30%':'36%')+'">'+days.map(()=>'<col>').join('')+'<col style="width:13%"></colgroup>';
-  h+='<tr><th></th>'+days.map(d=>`<th class="${d>4?'we':''}">${short[d]}<br>${pd(W.dates[d]).getDate()}.</th>`).join('')+'<th class="s">Sum</th></tr>';
+  let h='<div class="sec">'+(desk?'Ukeoversikt – timer per jobb':'Timer per jobb')+'</div><div class="tbl"><table><colgroup><col style="width:'+(desk?'28%':hasWe?'30%':'36%')+'">'+days.map(()=>'<col>').join('')+'<col style="width:'+(desk?'9%':'13%')+'"></colgroup>';
+  h+='<tr><th></th>'+days.map(d=>`<th class="${d>4?'we':''}${sel(d)}" data-d="${d}">${short[d]} <br>${pd(W.dates[d]).getDate()}.</th>`).join('')+'<th class="s">Sum</th></tr>';
   W.jobs.forEach((j,i)=>{
     const js=days.reduce((s,d)=>s+dayHours(j.days[d]),0);
     h+=`<tr><td class="jn">${esc(j.jobb||'(uten navn)')}${j.ordre?'<small>'+esc(fOrdre(j.ordre))+'</small>':''}</td>`;
-    h+=days.map(d=>{ const x=dayHours(j.days[d]); return `<td class="c${d>4?' we':''}${j.days[d].pending?' q':''}" data-i="${i}" data-d="${d}">${x?f1(x):''}</td>`; }).join('');
+    h+=days.map(d=>{ const x=dayHours(j.days[d]); return `<td class="c${d>4?' we':''}${sel(d)}${j.days[d].pending?' q':''}" data-i="${i}" data-d="${d}">${x?f1(x):''}</td>`; }).join('');
     h+=`<td class="s">${js?f1(js):''}</td></tr>`;
   });
-  h+='<tr class="sumrow"><td class="jn">Sum</td>'+days.map(d=>`<td class="${d>4?'we':''}">${sums[d]?f1(sums[d]):''}</td>`).join('')+`<td class="s">${f1(tot)}</td></tr>`;
+  h+='<tr class="sumrow"><td class="jn">Sum</td>'+days.map(d=>`<td class="${d>4?'we':''}${sel(d)}">${sums[d]?f1(sums[d]):''}</td>`).join('')+`<td class="s">${f1(tot)}</td></tr>`;
   h+='</table></div>';
 
   // Per timetype (samles på navn fra rad 4)
@@ -348,11 +392,8 @@ function renderWeek(sums,tot){
     const l=W.labels[d][k]; if(!(l in byType)){byType[l]=0;order.push(l);} byType[l]+=n(x);
   })));
   const types=order.filter(l=>byType[l]);
-  if(types.length){
-    h+='<div class="sec">Per timetype</div><div class="kv">'+types.map(l=>`<div><span>${esc(lblName(l))}</span><b>${f1(byType[l])} t</b></div>`).join('')+'</div>';
-  }
 
-  // Kjøring og utlegg
+  // Kjøring og utlegg + kommentarer
   let bil=0,km=0,bom=0,park=0; const kom=[];
   W.jobs.forEach(j=>[0,1,2,3,4,5,6].forEach(d=>{
     const x=j.days[d]; if(x.servicebil!=='') bil+=n(x.servicebil)||1; km+=n(x.km); bom+=n(x.bom); park+=n(x.parkering);
@@ -363,14 +404,13 @@ function renderWeek(sums,tot){
   if(km) ut.push(['Km egen bil',f1(km).replace(/,0$/,'')+' km']);
   if(bom) ut.push(['Bom',f1(bom).replace(/,0$/,'')+' kr']);
   if(park) ut.push(['Parkering',f1(park).replace(/,0$/,'')+' kr']);
-  if(ut.length) h+='<div class="sec">Kjøring og utlegg</div><div class="kv">'+ut.map(([a,b])=>`<div><span>${a}</span><b>${b}</b></div>`).join('')+'</div>';
 
-  if(kom.length) h+='<div class="sec">Kommentarer</div><div class="kv">'+kom.map(c=>`<div><span class="c"><small>${DAYN[c.d]} ${pd(W.dates[c.d]).getDate()}. · ${esc(c.j.jobb)}</small>${esc(c.t)}</span></div>`).join('')+'</div>';
-
-  h+=linksHtml();
-  $('main').innerHTML=h;
-  $('main').querySelectorAll('td.c').forEach(td=>td.onclick=()=>{ dayIdx=+td.dataset.d; openForm(+td.dataset.i); });
-  bindLinks();
+  const boxes=[];
+  if(types.length) boxes.push('<div><div class="sec">Per timetype</div><div class="kv">'+types.map(l=>`<div><span>${esc(lblName(l))}</span><b>${f1(byType[l])} t</b></div>`).join('')+'</div></div>');
+  if(ut.length) boxes.push('<div><div class="sec">Kjøring og utlegg</div><div class="kv">'+ut.map(([a,b])=>`<div><span>${a}</span><b>${b}</b></div>`).join('')+'</div></div>');
+  if(kom.length) boxes.push('<div><div class="sec">Kommentarer</div><div class="kv">'+kom.map(c=>`<div><span class="c"><small>${DAYN[c.d]} ${pd(W.dates[c.d]).getDate()}. · ${esc(c.j.jobb)}</small>${esc(c.t)}</span></div>`).join('')+'</div></div>');
+  h+='<div class="boxes">'+boxes.join('')+'</div>';
+  return h;
 }
 function linksHtml(){ return '<div class="links">'+(W.url?`<a href="${W.url}" target="_blank" rel="noopener">Åpne regnearket ↗</a>`:'')+'<button id="openSetup">Innstillinger</button></div>'; }
 function bindLinks(){ $('openSetup').onclick=openSetup; }
@@ -510,6 +550,7 @@ setInterval(sync,60000);
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
+DESK.addEventListener('change',()=>W&&render());
 load(anchor);
 if(!CONF) openSetup(); else sync();
 </script>

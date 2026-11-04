@@ -1,5 +1,5 @@
 // Timeliste – service worker: appen virker uten nett. Data går direkte til Google (ikke cachet her).
-const CACHE = 'timeliste-v4';
+const CACHE = 'timeliste-v5';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
