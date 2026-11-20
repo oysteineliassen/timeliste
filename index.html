@@ -90,6 +90,11 @@
   .switch span:before{content:"";position:absolute;width:24px;height:24px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s}
   .switch input:checked+span{background:var(--ok)}
   .switch input:checked+span:before{transform:translateX(22px)}
+  .ac{display:none;border-top:1px solid var(--line);padding:4px 0}
+  .ac.on{display:block}
+  .ac button{display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left;background:none;border:0;border-radius:8px;padding:10px 6px;font:inherit;color:var(--ink);cursor:pointer}
+  .ac button:active,.ac button:hover{background:#eef2f7}
+  .ac small{color:var(--muted);font-size:12px}
   .chips{display:flex;gap:6px;overflow-x:auto;padding:8px 0 10px}
   .chip{flex:none;border:1px solid var(--line);background:#fff;border-radius:18px;padding:6px 12px;font:inherit;font-size:14px;white-space:nowrap;color:var(--ink)}
   .btns{display:flex;gap:8px;margin-top:6px}
@@ -158,9 +163,9 @@
     <div id="pickWrap">
       <div class="box">
         <div class="row"><label>Ordre nr</label><input id="fOrdre" inputmode="numeric" class="sm" autocomplete="off"></div>
-        <div class="row"><input id="fJobb" placeholder="Jobb / sted" list="sugList" autocomplete="off"></div>
+        <div class="row"><input id="fJobb" placeholder="Jobb / sted" autocomplete="off" autocorrect="off" spellcheck="false"></div>
+        <div id="acList" class="ac"></div>
       </div>
-      <datalist id="sugList"></datalist>
       <div class="chips" id="chips"></div>
     </div>
     <div class="box">
@@ -458,17 +463,33 @@ function openForm(idx){
   if(!job){
     const inWeek=new Set(W.jobs.map(j=>(j.jobb||'').toLowerCase()));
     const sug=(W.suggestions||[]).filter(s=>!inWeek.has(s.jobb.toLowerCase()));
-    $('sugList').innerHTML=(W.suggestions||[]).map(s=>`<option value="${esc(s.jobb)}">${s.ordre?esc(fOrdre(s.ordre)):''}</option>`).join('');
+    hideAc();
     $('chips').innerHTML=sug.slice(0,15).map((s,i)=>`<button class="chip" data-i="${i}">${esc(s.jobb)}</button>`).join('');
     $('chips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{ const s=sug[+c.dataset.i]; $('fJobb').value=s.jobb; $('fOrdre').value=s.ordre; });
   }
   $('sheet').classList.add('on');
 }
+/* Egen forslagsliste (Chromes datalist på Android filtrerer ikke og lar seg ikke lukke) */
+function hideAc(){ $('acList').innerHTML=''; $('acList').classList.remove('on'); }
+function pickSug(s){ $('fJobb').value=s.jobb; if(s.ordre) $('fOrdre').value=s.ordre; hideAc(); $('fJobb').blur(); }
+$('fJobb').addEventListener('input',()=>{
+  const q=$('fJobb').value.trim().toLowerCase();
+  if(!q){ hideAc(); return; }
+  const all=W.suggestions||[];
+  const hits=all.filter(x=>x.jobb.toLowerCase().startsWith(q)).concat(all.filter(x=>!x.jobb.toLowerCase().startsWith(q)&&x.jobb.toLowerCase().includes(q))).slice(0,6);
+  if(!hits.length || (hits.length===1 && hits[0].jobb.toLowerCase()===q)){ hideAc(); return; }
+  $('acList').innerHTML=hits.map((x,i)=>`<button type="button" data-i="${i}">${esc(x.jobb)}${x.ordre?'<small>'+esc(fOrdre(x.ordre))+'</small>':''}</button>`).join('');
+  $('acList').classList.add('on');
+  $('acList').querySelectorAll('button').forEach(b=>b.onclick=()=>pickSug(hits[+b.dataset.i]));
+});
+['mousedown','pointerdown'].forEach(ev=>$('acList').addEventListener(ev,e=>e.preventDefault()));   // ikke mist fokus før trykket registreres
+$('fJobb').addEventListener('keydown',e=>{ if(e.key==='Escape'||e.key==='Enter') hideAc(); });
+$('fJobb').addEventListener('blur',()=>setTimeout(hideAc,200));
 $('fJobb').addEventListener('change',()=>{
   const s=(W.suggestions||[]).find(x=>x.jobb.toLowerCase()===$('fJobb').value.trim().toLowerCase());
   if(s&&!$('fOrdre').value) $('fOrdre').value=s.ordre;
 });
-function closeForm(){ $('sheet').classList.remove('on'); edit=null; }
+function closeForm(){ $('sheet').classList.remove('on'); edit=null; hideAc(); }
 $('fCancel').onclick=closeForm;
 $('sheet').onclick=e=>{ if(e.target.id==='sheet') closeForm(); };
 
